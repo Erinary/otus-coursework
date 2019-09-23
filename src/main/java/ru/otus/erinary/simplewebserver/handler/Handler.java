@@ -5,35 +5,35 @@ import ru.otus.erinary.simplewebserver.message.HttpResponse;
 
 public interface Handler {
 
-    default void doGet(HttpRequest request, HttpResponse response) {
+    default HttpResponse doGet(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doPost(HttpRequest request, HttpResponse response) {
+    default HttpResponse doPost(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doHead(HttpRequest request, HttpResponse response) {
+    default HttpResponse doHead(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doPut(HttpRequest request, HttpResponse response) {
+    default HttpResponse doPut(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doDelete(HttpRequest request, HttpResponse response) {
+    default HttpResponse doDelete(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doTrace(HttpRequest request, HttpResponse response) {
+    default HttpResponse doTrace(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doOptions(HttpRequest request, HttpResponse response) {
+    default HttpResponse doOptions(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default void doPatch(HttpRequest request, HttpResponse response) {
+    default HttpResponse doPatch(HttpRequest request) {
         throw new UnsupportedOperationException("Not implemented");
     }
 

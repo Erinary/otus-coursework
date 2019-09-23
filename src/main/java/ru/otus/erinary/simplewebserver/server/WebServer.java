@@ -22,11 +22,20 @@ public class WebServer {
         this.serverSocket = new ServerSocket(port);
     }
 
-    public void run() throws IOException {
-        while (true) {
-            Socket socket = serverSocket.accept();
-            SocketListener listener = new SocketListener(socket, handlers);
-            listener.start();
+    public void run() throws Exception {
+        log.info("Message server started");
+        try {
+            //noinspection InfiniteLoopStatement
+            while (true) {
+                log.info("Waiting for connections");
+                Socket socket = serverSocket.accept();
+                log.info("Got new connection from {}", socket.getInetAddress());
+                SocketListener listener = new SocketListener(socket, handlers);
+                listener.start();
+            }
+        } catch (Exception e) {
+            log.error("Error: {}", e.getMessage());
+            throw e;
         }
     }
 

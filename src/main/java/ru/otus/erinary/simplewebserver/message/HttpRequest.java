@@ -1,19 +1,21 @@
 package ru.otus.erinary.simplewebserver.message;
 
+import lombok.Builder;
 import lombok.Data;
 
 import java.util.Map;
 
 @Data
+@Builder
 public class HttpRequest {
 
     private HttpMethod method;
-    private String requestTarget;
+    private String path;
     private String protocolVersion;
     private Map<String, String> headers;
-    private String body;
+    private byte[] body;
 
-    private enum HttpMethod {
+    public enum HttpMethod {
         GET, POST, HEAD, PUT, DELETE, TRACE, OPTIONS, PATCH
     }
 
