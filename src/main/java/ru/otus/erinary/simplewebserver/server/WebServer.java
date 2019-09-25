@@ -6,19 +6,18 @@ import ru.otus.erinary.simplewebserver.handler.Handler;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
 
+@SuppressWarnings("WeakerAccess")
 @Slf4j
 public class WebServer {
 
     private static final int DEFAULT_PORT = 8888;
     private final ServerSocket serverSocket;
-    private final Map<String, Handler> handlers;
+    private final PathDispatcher dispatcher;
 
     public WebServer(int serverPort) throws IOException {
         int port = serverPort > 0 ? serverPort : DEFAULT_PORT;
-        this.handlers = new HashMap<>();
+        this.dispatcher = new PathDispatcher();
         this.serverSocket = new ServerSocket(port);
     }
 
@@ -30,7 +29,7 @@ public class WebServer {
                 log.info("Waiting for connections");
                 Socket socket = serverSocket.accept();
                 log.info("Got new connection from {}", socket.getInetAddress());
-                SocketListener listener = new SocketListener(socket, handlers);
+                SocketListener listener = new SocketListener(socket, dispatcher);
                 listener.start();
             }
         } catch (Exception e) {
@@ -40,7 +39,7 @@ public class WebServer {
     }
 
     public void addHandler(String path, Handler handler) {
-        handlers.put(path, handler);
+        dispatcher.addHandler(path, handler);
     }
 
 }

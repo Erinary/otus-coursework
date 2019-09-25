@@ -18,7 +18,14 @@ class WebServerTest {
     @BeforeAll
     static void setup() throws Exception {
         webServer = new WebServer(PORT);
-        webServer.addHandler("/", new DummyHandler());
+        webServer.addHandler("/", new DummyHandler(
+                "GET: Got a message!",
+                "POST: Got a message!"
+        ));
+        webServer.addHandler("/another", new DummyHandler(
+                "Another handler - GET: Got a message!",
+                "Another handler - POST: Got a message!"
+        ));
         webServerThread = new Thread(() -> {
             try {
                 webServer.run();
@@ -45,6 +52,16 @@ class WebServerTest {
         assertEquals("OK", response.message());
         String responseBody = response.body().string();
         assertTrue(responseBody.contains("GET: Got a message!"));
+
+        Request anotherRequest = new Request.Builder()
+                .url("http://localhost:8080/another")
+                .get()
+                .build();
+        Response anotherResponse = client.newCall(anotherRequest).execute();
+        assertEquals(200, anotherResponse.code());
+        assertEquals("OK", anotherResponse.message());
+        String anotherResponseBody = anotherResponse.body().string();
+        assertTrue(anotherResponseBody.contains("Another handler - GET: Got a message!"));
     }
 
     @Test

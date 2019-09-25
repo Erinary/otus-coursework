@@ -20,11 +20,11 @@ public class SocketListener extends Thread {
 
     private static final String HTTP_PROTOCOL = "HTTP/1.1";
     private final Socket socket;
-    private final Map<String, Handler> handlers;
+    private final PathDispatcher dispatcher;
 
-    SocketListener(Socket socket, Map<String, Handler> handlers) {
+    SocketListener(Socket socket, PathDispatcher dispatcher) {
         this.socket = socket;
-        this.handlers = handlers;
+        this.dispatcher = dispatcher;
     }
 
     @Override
@@ -55,7 +55,7 @@ public class SocketListener extends Thread {
                 return;
             }
             log.info("Got a request: {}", request);
-            response = dispatchRequest(request, handlers.get(request.getPath()));
+            response = dispatchRequest(request);
         } catch (Exception e) {
             log.error("Error while handling request:", e);
             response = HttpResponse.builder()
@@ -136,7 +136,16 @@ public class SocketListener extends Thread {
                 .build();
     }
 
-    private HttpResponse dispatchRequest(HttpRequest request, Handler handler) {
+    private HttpResponse dispatchRequest(HttpRequest request) {
+        Handler handler = dispatcher.getHandler(request.getPath());
+        if (handler == null) {
+            return HttpResponse.builder()
+                    .protocolVersion(request.getProtocolVersion())
+                    .statusCode(HttpStatus.NOT_FOUND.getCode())
+                    .statusText(HttpStatus.NOT_FOUND.getMessage())
+                    .build();
+        }
+        request.setPathParameters(dispatcher.getPathParameters(request.getPath()));
         switch (request.getMethod()) {
             case GET:
                 return handler.doGet(request);
