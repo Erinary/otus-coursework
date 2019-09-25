@@ -3,6 +3,7 @@ package ru.otus.erinary.simplewebserver.message;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Data
@@ -12,7 +13,13 @@ public class HttpResponse {
     private String protocolVersion;
     private int statusCode;
     private String statusText;
-    private Map<String, String> headers;
-    private byte[] body;
+
+    @SuppressWarnings("UnusedAssignment")
+    @Builder.Default
+    private Map<String, String> headers = new HashMap<>();
+
+    @SuppressWarnings("UnusedAssignment")
+    @Builder.Default
+    private byte[] body = {};
 
 }

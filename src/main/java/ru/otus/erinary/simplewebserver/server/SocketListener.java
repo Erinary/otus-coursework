@@ -7,10 +7,13 @@ import ru.otus.erinary.simplewebserver.message.HttpRequest.HttpMethod;
 import ru.otus.erinary.simplewebserver.message.HttpResponse;
 import ru.otus.erinary.simplewebserver.message.HttpStatus;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringJoiner;
 
 @Slf4j
 public class SocketListener extends Thread {
@@ -19,7 +22,7 @@ public class SocketListener extends Thread {
     private final Socket socket;
     private final Map<String, Handler> handlers;
 
-    public SocketListener(Socket socket, Map<String, Handler> handlers) {
+    SocketListener(Socket socket, Map<String, Handler> handlers) {
         this.socket = socket;
         this.handlers = handlers;
     }
@@ -27,44 +30,34 @@ public class SocketListener extends Thread {
     @Override
     public void run() {
         HttpResponse response = null;
+        OutputStream outputStream = null;
+        InputStream inputStream = null;
         try {
-            HttpRequest request = readRequest();
-            log.info("Got a request: {}", request);
-            Handler handler = handlers.get(request.getPath());
-            switch (request.getMethod()) {
-                case GET:
-                    response = handler.doGet(request);
-                    break;
-                case POST:
-                    response = handler.doPost(request);
-                    break;
-                case PUT:
-                    response = handler.doPut(request);
-                    break;
-                case HEAD:
-                    response = handler.doHead(request);
-                    break;
-                case PATCH:
-                    response = handler.doPatch(request);
-                    break;
-                case TRACE:
-                    response = handler.doTrace(request);
-                    break;
-                case DELETE:
-                    response = handler.doDelete(request);
-                    break;
-                case OPTIONS:
-                    response = handler.doOptions(request);
-                    break;
-                default:
-                    response = HttpResponse.builder()
-                            .protocolVersion(request.getProtocolVersion())
-                            .statusCode(HttpStatus.METHOD_NOT_ALLOWED.getCode())
-                            .statusText(HttpStatus.METHOD_NOT_ALLOWED.getMessage())
-                            .build();
+            outputStream = socket.getOutputStream();
+            inputStream = socket.getInputStream();
+            HttpRequest request = readRequest(inputStream);
+            if (request == null) {
+                response = HttpResponse.builder()
+                        .protocolVersion(HTTP_PROTOCOL)
+                        .statusCode(HttpStatus.BAD_REQUEST.getCode())
+                        .statusText(HttpStatus.BAD_REQUEST.getMessage())
+                        .body("Received empty request".getBytes())
+                        .build();
+                return;
             }
+            if (!HTTP_PROTOCOL.equals(request.getProtocolVersion())) {
+                response = HttpResponse.builder()
+                        .protocolVersion(HTTP_PROTOCOL)
+                        .statusCode(HttpStatus.BAD_REQUEST.getCode())
+                        .statusText(HttpStatus.BAD_REQUEST.getMessage())
+                        .body("Unsupported HTTP protocol version".getBytes())
+                        .build();
+                return;
+            }
+            log.info("Got a request: {}", request);
+            response = dispatchRequest(request, handlers.get(request.getPath()));
         } catch (Exception e) {
-            log.error("Error: {}. Trying to send response with error message", e.getMessage());
+            log.error("Error while handling request:", e);
             response = HttpResponse.builder()
                     .protocolVersion(HTTP_PROTOCOL)
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.getCode())
@@ -80,27 +73,43 @@ public class SocketListener extends Thread {
                         .build();
             }
             try {
-                sendResponse(response);
+                if (outputStream != null) {
+                    sendResponse(response, outputStream);
+                    log.info("Response was sent");
+                }
             } catch (Exception e) {
-                log.error("Failed to send response. Error: {}", e.getMessage());
+                log.error("Failed to send response", e);
+            } finally {
+                try {
+                    if (outputStream != null) {
+                        outputStream.close();
+                    }
+                    if (inputStream != null) {
+                        inputStream.close();
+                    }
+                    socket.close();
+                } catch (IOException ignored) {
+                }
             }
         }
     }
 
-    private HttpRequest readRequest() throws IOException {
-        DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-
+    private HttpRequest readRequest(InputStream inputStream) throws IOException {
+        log.info("Reading request");
         /*First HTTP line*/
-        String[] firstLineData = new String[3];
         String requestLine = readLine(inputStream);
-        Map<String, String> headers = new HashMap<>();
-        if (requestLine != null) {
-            firstLineData = requestLine.split(" ");
+        log.info("First line read: {}", requestLine);
+        if (requestLine == null) {
+            log.info("Empty first line of request");
+            return null;
         }
+        String[] firstLineData = requestLine.split(" ");
 
         /*Headers*/
+        Map<String, String> headers = new HashMap<>();
         while (true) {
             requestLine = readLine(inputStream);
+            log.info("Line read: {}", requestLine);
             if (requestLine == null || requestLine.isEmpty()) {
                 break;
             }
@@ -109,9 +118,14 @@ public class SocketListener extends Thread {
         }
 
         /*Body*/
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        inputStream.transferTo(byteArrayOutputStream);
-        byte[] body = byteArrayOutputStream.toByteArray();
+        String contentLengthValue = headers.get("Content-Length");
+        byte[] body;
+        if (contentLengthValue == null) {
+            body = new byte[0];
+        } else {
+            int contentLen = Integer.parseInt(contentLengthValue);
+            body = inputStream.readNBytes(contentLen);
+        }
 
         return HttpRequest.builder()
                 .method(HttpMethod.valueOf(firstLineData[0]))
@@ -122,8 +136,56 @@ public class SocketListener extends Thread {
                 .build();
     }
 
-    private void sendResponse(HttpResponse response) throws IOException {
-        DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
+    private HttpResponse dispatchRequest(HttpRequest request, Handler handler) {
+        switch (request.getMethod()) {
+            case GET:
+                return handler.doGet(request);
+            case POST:
+                return handler.doPost(request);
+            case PUT:
+                return handler.doPut(request);
+            case HEAD:
+                return handler.doHead(request);
+            case PATCH:
+                return handler.doPatch(request);
+            case TRACE:
+                return handler.doTrace(request);
+            case DELETE:
+                return handler.doDelete(request);
+            case OPTIONS:
+                return handler.doOptions(request);
+            default:
+                return HttpResponse.builder()
+                        .protocolVersion(request.getProtocolVersion())
+                        .statusCode(HttpStatus.METHOD_NOT_ALLOWED.getCode())
+                        .statusText(HttpStatus.METHOD_NOT_ALLOWED.getMessage())
+                        .build();
+        }
+    }
+
+    private void sendResponse(HttpResponse response, OutputStream outputStream) throws IOException {
+        response.getHeaders().put("Content-Length", String.valueOf(response.getBody().length));
+        String firstLineData = new StringJoiner(" ", "", System.lineSeparator())
+                .add(response.getProtocolVersion())
+                .add(Integer.toString(response.getStatusCode()))
+                .add(response.getStatusText())
+                .toString();
+        String headers = String.join(System.lineSeparator(),
+                response.getHeaders().entrySet().stream().map(entry ->
+                        new StringJoiner(": ")
+                                .add(entry.getKey())
+                                .add(entry.getValue())
+                                .toString()).toArray(String[]::new));
+        String serviceData = new StringJoiner("\r\n")
+                .add(firstLineData)
+                .add(headers)
+                .add("")
+                .toString();
+        log.info("Service data for response: {}", serviceData);
+        outputStream.write(serviceData.getBytes());
+        outputStream.write(response.getBody());
+        outputStream.flush();
+        outputStream.close();
     }
 
     private String readLine(InputStream inputStream) throws IOException {
