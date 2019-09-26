@@ -120,15 +120,14 @@ class WebServerTest {
 
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
-                .url("http://localhost:8080/query?p1&p2&p3=one+two&p4=three%21")
+                .url("http://localhost:8080/query?p1&p2&p3=one+two&p4=three%21&p4=four")
                 .get()
                 .build();
         Response response = client.newCall(request).execute();
         assertEquals(200, response.code());
         assertEquals("OK", response.message());
         String responseBody = response.body().string();
-        System.out.println(responseBody);
-        assertTrue(responseBody.contains("{p1=null, p2=null, p3=one+two, p4=three%21}"));
+        assertTrue(responseBody.contains("{p1=[null], p2=[null], p3=[one two], p4=[three!, four]}"));
     }
 
 }

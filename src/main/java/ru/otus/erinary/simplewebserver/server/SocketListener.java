@@ -11,9 +11,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Slf4j
 public class SocketListener extends Thread {
@@ -108,18 +108,28 @@ public class SocketListener extends Thread {
         /*Query parameters*/
         String path;
         int queryStartIndex = firstLineData[1].indexOf("?");
-        Map<String, String> queryParameters = new HashMap<>();
+        Map<String, List<String>> queryParameters = new HashMap<>();
         if (queryStartIndex == -1) {
             path = firstLineData[1];
         } else {
             path = firstLineData[1].substring(0, queryStartIndex);
             String[] queryParts = firstLineData[1].substring(queryStartIndex + 1).split("&");
             for (String part : queryParts) {
-                String[] query;
-                if ((query = part.split("=")).length > 1) {
-                    queryParameters.put(query[0], query[1]);
+                String[] query = part.split("=");
+                String queryKey = query[0];
+                List<String> queryValues;
+
+                if (queryParameters.get(queryKey) == null) {
+                     queryValues = new ArrayList<>();
+                     queryParameters.put(queryKey, queryValues);
                 } else {
-                    queryParameters.put(part, null);
+                    queryValues = queryParameters.get(queryKey);
+                }
+
+                if (query.length > 1) {
+                    queryValues.add(URLDecoder.decode(query[1], StandardCharsets.UTF_8));
+                } else {
+                    queryValues.add(null);
                 }
             }
         }
