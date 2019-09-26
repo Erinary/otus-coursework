@@ -42,4 +42,13 @@ public class WebServer {
         dispatcher.addHandler(path, handler);
     }
 
+    public void close() throws IOException {
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            log.error("Error while closing socket server: ", e);
+            throw e;
+        }
+    }
+
 }

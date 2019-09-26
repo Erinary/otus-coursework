@@ -105,6 +105,25 @@ public class SocketListener extends Thread {
         }
         String[] firstLineData = requestLine.split(" ");
 
+        /*Query parameters*/
+        String path;
+        int queryStartIndex = firstLineData[1].indexOf("?");
+        Map<String, String> queryParameters = new HashMap<>();
+        if (queryStartIndex == -1) {
+            path = firstLineData[1];
+        } else {
+            path = firstLineData[1].substring(0, queryStartIndex);
+            String[] queryParts = firstLineData[1].substring(queryStartIndex + 1).split("&");
+            for (String part : queryParts) {
+                String[] query;
+                if ((query = part.split("=")).length > 1) {
+                    queryParameters.put(query[0], query[1]);
+                } else {
+                    queryParameters.put(part, null);
+                }
+            }
+        }
+
         /*Headers*/
         Map<String, String> headers = new HashMap<>();
         while (true) {
@@ -129,9 +148,10 @@ public class SocketListener extends Thread {
 
         return HttpRequest.builder()
                 .method(HttpMethod.valueOf(firstLineData[0]))
-                .path(firstLineData[1])
+                .path(path)
                 .protocolVersion(firstLineData[2])
                 .headers(headers)
+                .queryParameters(queryParameters)
                 .body(body)
                 .build();
     }

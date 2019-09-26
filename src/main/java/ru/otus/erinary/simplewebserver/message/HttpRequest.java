@@ -12,6 +12,7 @@ public class HttpRequest {
     private HttpMethod method;
     private String path;
     private Map<String, String> pathParameters;
+    private Map<String, String> queryParameters;
     private String protocolVersion;
     private Map<String, String> headers;
     private byte[] body;
