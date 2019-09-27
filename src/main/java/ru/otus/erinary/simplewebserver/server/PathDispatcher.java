@@ -45,7 +45,7 @@ public class PathDispatcher {
     }
 
     @Data
-    static class Route {
+    private static class Route {
         private Handler handler;
         private Pattern pathPattern;
         private List<String> parameters;
